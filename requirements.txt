@@ -1,0 +1,89 @@
+# =============================================
+# NOJA Bot - Requerimientos del proyecto
+# =============================================
+# Instalar con: pip install -r requirements.txt
+
+
+#python -m bot.bot
+# Telegram Bot
+python-telegram-bot==22.7
+
+# API y servidor
+fastapi
+uvicorn
+python-multipart
+httpx
+
+# Vision por computadora
+ultralytics
+pillow
+
+# RAG - Base de datos vectorial
+langchain
+langchain-groq
+langchain-community
+langchain-core
+langchain-text-splitters
+chromadb
+pypdf
+sentence-transformers
+
+
+aiofiles==25.1.0
+annotated-doc==0.0.4
+annotated-types==0.7.0
+anyio==4.13.0
+certifi==2026.4.22
+charset-normalizer==3.4.7
+click==8.3.3
+colorama==0.4.6
+customtkinter==5.2.2
+darkdetect==0.8.0
+fastapi==0.136.0
+greenlet==3.4.0
+h11==0.16.0
+httptools==0.7.1
+idna==3.13
+packaging==26.1
+pillow==12.2.0
+pydantic==2.13.3
+pydantic_core==2.46.3
+python-dotenv==1.2.2
+python-multipart==0.0.26
+PyYAML==6.0.3
+reportlab==4.4.10
+requests==2.33.1
+SQLAlchemy==2.0.49
+starlette==1.0.0
+typing-inspection==0.4.2
+typing_extensions==4.15.0
+urllib3==2.6.3
+uvicorn==0.45.0
+watchfiles==1.1.1
+websockets==16.0
+
+# =============================================
+# INSTRUCCIONES DE USO
+# =============================================
+# 1. Crear entorno virtual:
+#    python -m venv venv
+#
+# 2. Activar entorno virtual:
+#    Windows: venv\Scripts\activate
+#    Mac/Linux: source venv/bin/activate
+#
+# 3. Instalar dependencias:
+#    pip install -r requirements.txt
+#
+# 4. Configurar tokens en bot.py y rag.py:
+#    - TOKEN de Telegram (BotFather)
+#    - GROQ_API_KEY (console.groq.com)
+#
+# 5. Agregar tesis.pdf a la carpeta del proyecto
+#
+# 6. Iniciar Terminal 1 - API YOLO:
+#    python -m uvicorn api:app --reload
+#
+# 7. Iniciar Terminal 2 - Bot:
+#    python bot.py
+# =============================================
