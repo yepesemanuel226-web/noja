@@ -176,14 +176,17 @@ class MLPage(ctk.CTkFrame):
         _PBtn(right, text="🔮 Predecir", color=C_ML1,
               command=self._rf_predecir).pack(padx=14, pady=(4, 8), fill="x")
 
-        # Resultado
-        self.rf_resultado = _Card(right)
-        self.rf_resultado.pack(fill="x", padx=14, pady=(0, 14))
-        self.rf_res_lbl = ctk.CTkLabel(self.rf_resultado,
-                                        text="Completa los campos y presiona Predecir",
-                                        font=ctk.CTkFont(size=13),
-                                        text_color=C_MUTED, wraplength=380)
-        self.rf_res_lbl.pack(padx=14, pady=16)
+        # Resultado — textbox con scroll para que nunca quede cortado
+        ctk.CTkLabel(right, text="Resultado:",
+                     font=ctk.CTkFont(size=11, weight="bold"),
+                     text_color=C_MUTED).pack(anchor="w", padx=14)
+        self.rf_resultado_box = ctk.CTkTextbox(
+            right, fg_color=C_BG, text_color=C_TEXT,
+            font=ctk.CTkFont(size=13), wrap="word",
+            height=110)
+        self.rf_resultado_box.pack(fill="both", expand=True, padx=14, pady=(2, 14))
+        self.rf_resultado_box.insert("1.0", "Completa los campos y presiona Predecir.")
+        self.rf_resultado_box.configure(state="disabled")
 
     # ══════════════════════════════════════════════════════════════════════════
     # PESTAÑA 2 — K-MEANS
@@ -222,8 +225,8 @@ class MLPage(ctk.CTkFrame):
                      font=ctk.CTkFont(size=11), text_color=C_MUTED).pack(side="left", padx=(20, 4))
         self.km_buscar_var = StringVar()
         ctk.CTkEntry(ctrl_inner, textvariable=self.km_buscar_var,
-                     placeholder_text="ID del docente",
-                     width=180, height=32, fg_color=C_PANEL).pack(side="left", padx=4)
+                     placeholder_text="Nombre del docente",
+                     width=200, height=32, fg_color=C_PANEL).pack(side="left", padx=4)
         _PBtn(ctrl_inner, text="Buscar", color=C_ACCENT2, width=80,
               command=self._km_buscar_docente).pack(side="left", padx=4)
 
@@ -234,7 +237,7 @@ class MLPage(ctk.CTkFrame):
         # Encabezado tabla
         hdr = ctk.CTkFrame(tabla_frame, fg_color="#1e2235", corner_radius=6)
         hdr.pack(fill="x", padx=8, pady=(8, 2))
-        for i, col in enumerate(["Docente ID", "Clases/semana", "Horas/semana", "Días activos", "Categoría"]):
+        for i, col in enumerate(["Docente", "Clases/semana", "Horas/semana", "Días activos", "Categoría"]):
             ctk.CTkLabel(hdr, text=col,
                          font=ctk.CTkFont(size=11, weight="bold"),
                          text_color=C_ML2).grid(row=0, column=i, padx=12, pady=6, sticky="w")
@@ -301,20 +304,23 @@ class MLPage(ctk.CTkFrame):
         try:
             res = self.rf_modelo.predecir(doc, grp, sal, dia, hi, hf)
             if "error" in res:
-                self.rf_res_lbl.configure(text=f"❌ {res['error']}", text_color=C_DANGER)
+                self._set_textbox(self.rf_resultado_box, f"❌ {res['error']}")
                 return
 
-            color = C_DANGER if res["conflicto"] else C_SUCCESS
             texto = (
                 f"{res['mensaje']}\n\n"
-                f"Nivel de riesgo: {res['riesgo']}\n"
-                f"Probabilidad:    {res['porcentaje']}"
+                f"Nivel de riesgo:  {res['riesgo']}\n"
+                f"Probabilidad:     {res['porcentaje']}"
             )
-            self.rf_res_lbl.configure(text=texto, text_color=color,
-                                       font=ctk.CTkFont(size=13, weight="bold"))
+            self.rf_resultado_box.configure(state="normal")
+            self.rf_resultado_box.delete("1.0", "end")
+            color = C_DANGER if res["conflicto"] else C_SUCCESS
+            self.rf_resultado_box.configure(text_color=color)
+            self.rf_resultado_box.insert("1.0", texto)
+            self.rf_resultado_box.configure(state="disabled")
 
         except Exception as e:
-            self.rf_res_lbl.configure(text=f"❌ Error: {e}", text_color=C_DANGER)
+            self._set_textbox(self.rf_resultado_box, f"❌ Error: {e}")
 
     # ══════════════════════════════════════════════════════════════════════════
     # HANDLERS — K-Means
@@ -327,35 +333,24 @@ class MLPage(ctk.CTkFrame):
         def run():
             try:
                 from ml_horarios import obtener_clasificador
+                import requests
+
                 self.km_modelo = obtener_clasificador()
                 resultado = self.km_modelo.analizar()
                 self.km_listo = True
 
-                # Pintar tabla
-                COLOR_CAT = {
-                    "🔵 Subcargado":   "#0ea5e9",
-                    "🟢 Normal":       "#10b981",
-                    "🔴 Sobrecargado": "#ef4444",
-                }
-                for reg in resultado["tabla"]:
-                    cat   = reg["categoria"]
-                    color = COLOR_CAT.get(cat, C_TEXT)
-                    row   = ctk.CTkFrame(self.km_scroll, fg_color=C_PANEL, corner_radius=6)
-                    row.pack(fill="x", padx=4, pady=2)
-                    valores = [
-                        reg["docente_id"][:22],
-                        str(reg["total_clases"]),
-                        f"{reg['horas_semana']:.1f} h",
-                        str(reg["dias_distintos"]),
-                        cat,
-                    ]
-                    for i, v in enumerate(valores):
-                        ctk.CTkLabel(row, text=v,
-                                     font=ctk.CTkFont(size=11,
-                                                      weight="bold" if i == 4 else "normal"),
-                                     text_color=color if i == 4 else C_TEXT,
-                                     anchor="w").grid(row=0, column=i, padx=12, pady=6, sticky="w")
-                        row.columnconfigure(i, weight=1)
+                # Resolver nombres desde la API
+                try:
+                    resp = requests.get("http://localhost:8000/api/v1/docentes", timeout=3)
+                    docentes_api = {d["id"]: d["nombre"] for d in resp.json()} if resp.ok else {}
+                except Exception:
+                    docentes_api = {}
+
+                # Guardar tabla con nombres para el buscador
+                self._km_tabla_datos = resultado["tabla"]
+                self._km_docentes_nombres = docentes_api
+
+                self._km_pintar_tabla(resultado["tabla"], docentes_api)
 
                 # Resumen
                 resumen_txt = "  ".join(
@@ -374,24 +369,63 @@ class MLPage(ctk.CTkFrame):
 
         threading.Thread(target=run, daemon=True).start()
 
+    def _km_pintar_tabla(self, tabla, docentes_api):
+        """Pinta las filas de la tabla K-Means resolviendo nombres."""
+        for w in self.km_scroll.winfo_children():
+            w.destroy()
+
+        COLOR_CAT = {
+            "🔵 Subcargado":   "#0ea5e9",
+            "🟢 Normal":       "#10b981",
+            "🔴 Sobrecargado": "#ef4444",
+        }
+        for reg in tabla:
+            cat   = reg["categoria"]
+            color = COLOR_CAT.get(cat, C_TEXT)
+            nombre = docentes_api.get(reg["docente_id"], reg["docente_id"][:22])
+            row   = ctk.CTkFrame(self.km_scroll, fg_color=C_PANEL, corner_radius=6)
+            row.pack(fill="x", padx=4, pady=2)
+            valores = [
+                nombre,
+                str(reg["total_clases"]),
+                f"{reg['horas_semana']:.1f} h",
+                str(reg["dias_distintos"]),
+                cat,
+            ]
+            for i, v in enumerate(valores):
+                ctk.CTkLabel(row, text=v,
+                             font=ctk.CTkFont(size=11,
+                                              weight="bold" if i == 4 else "normal"),
+                             text_color=color if i == 4 else C_TEXT,
+                             anchor="w").grid(row=0, column=i, padx=12, pady=6, sticky="w")
+                row.columnconfigure(i, weight=1)
+
     def _km_buscar_docente(self):
         if not self.km_listo or self.km_modelo is None:
             messagebox.showwarning("Sin datos", "Ejecuta K-Means primero.")
             return
-        did = self.km_buscar_var.get().strip()
-        if not did:
+        query = self.km_buscar_var.get().strip().lower()
+        if not query:
+            # Si está vacío, mostrar todos
+            self._km_pintar_tabla(self._km_tabla_datos, self._km_docentes_nombres)
             return
-        res = self.km_modelo.predecir_docente(did)
-        if "error" in res:
-            messagebox.showinfo("Docente no encontrado", res["error"])
-        else:
-            messagebox.showinfo(
-                f"Docente: {did}",
-                f"Categoría:        {res['categoria']}\n"
-                f"Clases/semana:    {res['total_clases']}\n"
-                f"Horas/semana:     {res['horas_semana']} h\n"
-                f"Días activos:     {res['dias_distintos']}"
-            )
+
+        # Filtrar por nombre (o por ID si no hay nombres)
+        nombres = getattr(self, "_km_docentes_nombres", {})
+        tabla   = getattr(self, "_km_tabla_datos", [])
+
+        filtrados = [
+            reg for reg in tabla
+            if query in nombres.get(reg["docente_id"], reg["docente_id"]).lower()
+        ]
+
+        if not filtrados:
+            messagebox.showinfo("Sin resultados",
+                                f"No se encontró ningún docente con '{self.km_buscar_var.get()}'.\n"
+                                "Prueba con parte del nombre, ej: 'Carlos', 'Ramírez', 'Dr.'")
+            return
+
+        self._km_pintar_tabla(filtrados, nombres)
 
     # ── Utilidad ──────────────────────────────────────────────────────────────
     @staticmethod

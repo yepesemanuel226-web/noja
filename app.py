@@ -38,6 +38,53 @@ BASE_URL = "http://localhost:8000/api/v1"
 # Telegram — cambia este username si cambia el bot
 TELEGRAM_BOT_URL = "https://t.me/noja_monitor_bot"
 
+# ─── Normalización de texto (compartida con bot de Telegram) ─────────────────
+import re as _re
+
+_CORRECCIONES = {
+    "miercoles": "miércoles", "sabado": "sábado",
+    "manana": "mañana",       "maniana": "mañana",
+    "salon": "salón",         "horaro": "horario",
+    "disponibiliad": "disponibilidad", "dsiponibilidad": "disponibilidad",
+    "disponibildad": "disponibilidad",
+    "docnete": "docente",     "docnetes": "docentes",
+    "asignacion": "asignación", "periodo": "período",
+    "academico": "académico", "academica": "académica",
+    "profe": "profesor",      "profes": "profesores",
+    "q": "que",   "xq": "por qué",  "pq": "por qué",
+    "tb": "también", "tmb": "también", "tmbn": "también",
+    "pa": "para", "x": "por",  "k": "que",
+    "kien": "quién", "aki": "aquí", "aqui": "aquí",
+    "mas": "más",  "como": "cómo",  "cuando": "cuándo",
+    "donde": "dónde", "cuantas": "cuántas", "cuantos": "cuántos",
+    "cuanto": "cuánto", "cual": "cuál", "quien": "quién",
+    "clace": "clase",  "claes": "clases",
+    "hroario": "horario", "sloan": "salón", "slaon": "salón",
+    "toca hoy": "hay clase hoy",
+    "q clases hay": "qué clases hay",
+    "q tengo hoy": "qué tengo hoy",
+}
+
+_DIAS_ES = {
+    "lun": "lunes", "mar": "martes",
+    "mie": "miércoles", "mié": "miércoles", "mier": "miércoles",
+    "jue": "jueves", "vie": "viernes",
+    "sab": "sábado", "sáb": "sábado", "dom": "domingo",
+}
+
+def normalizar_texto(texto: str) -> str:
+    """Corrige errores tipográficos, acentos y coloquialismos antes de enviar al RAG."""
+    t = texto.lower().strip()
+    for abr, dia in _DIAS_ES.items():
+        t = _re.sub(rf"\b{_re.escape(abr)}\b", dia, t)
+    for error, correcto in _CORRECCIONES.items():
+        if " " in error:
+            t = t.replace(error, correcto)
+        else:
+            t = _re.sub(rf"\b{_re.escape(error)}\b", correcto, t)
+    t = _re.sub(r"\s+", " ", t).strip()
+    return t
+
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
@@ -433,7 +480,11 @@ class ChatbotRAGPage(ctk.CTkFrame):
                                    "La base vectorial aún se está cargando. Espera unos segundos.")
             return
 
+        # Mostrar el texto original del usuario en el chat
         self._agregar_mensaje("usuario", texto)
+
+        # Normalizar antes de enviar al RAG (corrige tildes, coloquialismos, typos)
+        texto_normalizado = normalizar_texto(texto)
 
         # Placeholder mientras carga
         placeholder = ctk.CTkFrame(self.chat_box, fg_color=C_PANEL, corner_radius=10)
@@ -442,15 +493,13 @@ class ChatbotRAGPage(ctk.CTkFrame):
                                 font=ctk.CTkFont(size=12), text_color=C_WARN)
         lbl_load.pack(padx=10, pady=8)
 
-        # Diccionario mutable para pasar la respuesta entre hilos de forma segura
         resultado = {"texto": None}
 
         def run():
             try:
-                resultado["texto"] = rag_module.consultar(cadena_rag, texto, user_id=self.user_id)
+                resultado["texto"] = rag_module.consultar(cadena_rag, texto_normalizado, user_id=self.user_id)
             except Exception as e:
                 resultado["texto"] = f"❌ Error al consultar: {str(e)}"
-            # Programar el update en el hilo principal de tkinter
             self.after(0, actualizar_ui)
 
         def actualizar_ui():

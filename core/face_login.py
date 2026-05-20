@@ -389,7 +389,8 @@ def modo_acceder():
 
             if mejor_match and mejor_dist < UMBRAL:
                 cap.release()
-                cv2.destroyWindow(WIN_CAM)
+                cv2.destroyAllWindows()
+                cv2.waitKey(1)
                 ventana_bienvenida(saludo, mejor_match)
                 lanzar_app(mejor_match)
                 return
@@ -454,9 +455,11 @@ def ventana_bienvenida(saludo, nombre):
 # ── Lanzar app.py ─────────────────────────────────────────────────────────────
 def lanzar_app(nombre_usuario):
     cv2.destroyAllWindows()
+    cv2.waitKey(1)   # flush de eventos pendientes de OpenCV
+    import time
+    time.sleep(0.3)  # pequeña pausa para que OpenCV libere las ventanas
     kwargs = {"cwd": ROOT_DIR}
     if sys.platform == "win32":
-        # CREATE_NO_WINDOW evita que aparezca ventana de consola negra
         kwargs["creationflags"] = 0x08000000  # CREATE_NO_WINDOW
     try:
         subprocess.Popen(
@@ -465,6 +468,8 @@ def lanzar_app(nombre_usuario):
         )
     except Exception as e:
         print(f"[face_login] No se pudo lanzar app.py: {e}")
+    # Salir del proceso de face_login completamente
+    sys.exit(0)
 
 # ── MAIN ──────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":

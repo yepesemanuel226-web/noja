@@ -26,21 +26,15 @@ async def startup_event():
     print("=" * 55)
     print("  Iniciando API de Gestión de Horarios...")
 
-    # Intentar crear tablas — no bloquea el arranque si falla
+    # Crear tablas automáticamente en SQLite
     try:
         Base.metadata.create_all(bind=engine, checkfirst=True)
-        print("  ✅ Tablas verificadas/creadas en Supabase")
+        print("  ✅ Tablas verificadas/creadas en SQLite")
     except Exception as e:
         print(f"  ⚠️  No se pudieron crear tablas: {e}")
         print("  La API arrancará de todas formas.")
 
-    # Mostrar host conectado (sin exponer contraseña)
-    try:
-        host_info = DATABASE_URL.split("@")[1].split("/")[0]
-    except Exception:
-        host_info = "desconocido"
-
-    print(f"  Base de datos: {host_info}")
+    print(f"  Base de datos: {DATABASE_URL}")
     print("  Docs: http://localhost:8000/docs")
     print("=" * 55)
 
@@ -50,5 +44,5 @@ def root():
     return {
         "mensaje": "API de Gestión de Horarios funcionando",
         "docs": "/docs",
-        "base_de_datos": "Supabase PostgreSQL",
+        "base_de_datos": "SQLite local (horarios.db)",
     }

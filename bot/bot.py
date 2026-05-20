@@ -36,34 +36,138 @@ cadena_rag = None
 # Normalización de texto
 # ============================================
 
+# Correcciones de tildes/acentos faltantes y errores comunes
 CORRECCIONES = {
-    "manana":        "mañana",
-    "maniana":       "mañana",
-    "horario hoy":   "horario hoy",
-    "profe":         "profesor",
-    "profes":        "profesores",
-    "materia":       "asignatura",
-    "salon":         "salón",
-    "conflicto":     "conflicto",
-    "horaro":        "horario",
-    "horarios":      "horarios",
-    "disponibiliad": "disponibilidad",
-    "docnete":       "docente",
-    "docnetes":      "docentes",
+    # Días sin tilde
+    "miercoles":      "miércoles",
+    "sabado":         "sábado",
+    "manana":         "mañana",
+    "maniana":        "mañana",
+    # Palabras sin tilde frecuentes
+    "salon":          "salón",
+    "horaro":         "horario",
+    "disponibiliad":  "disponibilidad",
+    "disponibilidad": "disponibilidad",
+    "docnete":        "docente",
+    "docnetes":       "docentes",
+    "asignacion":     "asignación",
+    "asignaciones":   "asignaciones",
+    "materia":        "asignatura",
+    "solicitud":      "solicitud",
+    "solicitudes":    "solicitudes",
+    "periodo":        "período",
+    "academico":      "académico",
+    "academica":      "académica",
+    # Coloquialismos / abreviaciones
+    "profe":          "profesor",
+    "profes":         "profesores",
+    "q":              "que",
+    "xq":             "por qué",
+    "pq":             "por qué",
+    "tb":             "también",
+    "tmb":            "también",
+    "tmbn":           "también",
+    "d":              "de",
+    "pa":             "para",
+    "x":              "por",
+    "k":              "que",
+    "kien":           "quién",
+    "kiero":          "quiero",
+    "kiero":          "quiero",
+    "hay":            "hay",
+    "ai":             "hay",
+    "ahi":            "ahí",
+    "aki":            "aquí",
+    "aqui":           "aquí",
+    "aca":            "acá",
+    "mas":            "más",
+    "si":             "sí",
+    "como":           "cómo",
+    "cuando":         "cuándo",
+    "donde":          "dónde",
+    "cuantas":        "cuántas",
+    "cuantos":        "cuántos",
+    "cuanto":         "cuánto",
+    "cual":           "cuál",
+    "cuales":         "cuáles",
+    "quien":          "quién",
+    "quienes":        "quiénes",
+    # Errores tipográficos comunes
+    "horarios":       "horarios",
+    "conflictos":     "conflictos",
+    "conflicto":      "conflicto",
+    "clace":          "clase",
+    "claces":         "clases",
+    "claes":          "clases",
+    "hroario":        "horario",
+    "hroarios":       "horarios",
+    "dsiponibilidad": "disponibilidad",
+    "disponibildad":  "disponibilidad",
+    "docnete":        "docente",
+    "doncete":        "docente",
+    "sloan":          "salón",
+    "slaon":          "salón",
+    "aula":           "aula",
+    "mañna":          "mañana",
+    "mañna":          "mañana",
+    "ayer":           "ayer",
+    "hoy":            "hoy",
+    "tmrw":           "mañana",
+    # Frases coloquiales completas
+    "horario hoy":    "horario de hoy",
+    "q clases hay":   "qué clases hay",
+    "q tengo hoy":    "qué tengo hoy",
+    "hay clases":     "hay clases",
+    "toca hoy":       "hay clase hoy",
 }
 
+# Abreviaciones de días
 DIAS_ES = {
-    "lun": "lunes", "mar": "martes", "mie": "miércoles",
-    "mié": "miércoles", "jue": "jueves", "vie": "viernes",
-    "sab": "sábado", "dom": "domingo",
+    "lun":  "lunes",
+    "mar":  "martes",
+    "mie":  "miércoles",
+    "mié":  "miércoles",
+    "mier": "miércoles",
+    "jue":  "jueves",
+    "jue.": "jueves",
+    "vie":  "viernes",
+    "vie.": "viernes",
+    "sab":  "sábado",
+    "sáb":  "sábado",
+    "dom":  "domingo",
+    "dom.": "domingo",
 }
+
+def _quitar_acentos_para_comparar(texto: str) -> str:
+    """Versión sin acentos para comparación interna (no modifica el texto final)."""
+    tabla = str.maketrans("áéíóúüÁÉÍÓÚÜàèìòùÀÈÌÒÙ",
+                          "aeiouuAEIOUUaeiouAEIOU")
+    return texto.translate(tabla)
 
 def normalizar(texto: str) -> str:
+    """
+    Normaliza el texto del usuario:
+    1. Minúsculas y strip
+    2. Expande abreviaciones de días
+    3. Corrige errores tipográficos y coloquialismos
+    4. Limpia espacios múltiples
+    """
     t = texto.lower().strip()
+
+    # Reemplazar abreviaciones de días (palabra completa)
     for abr, dia in DIAS_ES.items():
-        t = re.sub(rf"\b{abr}\b", dia, t)
+        t = re.sub(rf"\b{re.escape(abr)}\b", dia, t)
+
+    # Aplicar correcciones (palabra completa para no romper palabras largas)
     for error, correcto in CORRECCIONES.items():
-        t = re.sub(rf"\b{error}\b", correcto, t)
+        # Si la clave tiene espacios es una frase, buscar sin \b
+        if " " in error:
+            t = t.replace(error, correcto)
+        else:
+            t = re.sub(rf"\b{re.escape(error)}\b", correcto, t)
+
+    # Limpiar espacios múltiples
+    t = re.sub(r"\s+", " ", t).strip()
     return t
 
 def dia_semana_hoy() -> str:
@@ -80,24 +184,33 @@ def fecha_hoy() -> str:
 def detectar_intencion(texto: str) -> str:
     t = normalizar(texto)
 
-    if any(p in t for p in ["horario hoy", "clases hoy", "que tengo hoy",
-                              "clase hoy", "hoy tengo", "horario de hoy"]):
+    if any(p in t for p in ["horario de hoy", "clases hoy", "qué tengo hoy",
+                              "que tengo hoy", "clase hoy", "hoy tengo",
+                              "hay clase hoy", "toca hoy", "qué hay hoy",
+                              "que hay hoy"]):
         return "horario_hoy"
     if any(p in t for p in ["horario", "clase", "asignatura", "materia",
-                              "cuando", "qué hora", "que hora"]):
+                              "cuándo", "cuando", "qué hora", "que hora",
+                              "a qué hora", "a que hora"]):
         return "horario"
     if any(p in t for p in ["disponible", "disponibilidad", "libre",
-                              "puede", "puedo", "tiempo libre"]):
+                              "puede", "puedo", "tiempo libre", "está libre",
+                              "esta libre", "tiene espacio"]):
         return "disponibilidad"
     if any(p in t for p in ["conflicto", "cruce", "choque", "problema",
-                              "solapan", "mismo horario", "doble"]):
+                              "solapan", "mismo horario", "doble",
+                              "se cruzan", "coinciden"]):
         return "conflicto"
     if any(p in t for p in ["cambio", "solicito", "solicitar", "mover",
-                              "cambiar", "modificar", "reasignar"]):
+                              "cambiar", "modificar", "reasignar",
+                              "quiero cambiar", "necesito cambiar"]):
         return "solicitud"
-    if any(p in t for p in ["reglamento", "norma", "politica", "política",
-                              "horas maximas", "horas mínimas", "estatuto",
-                              "permitido", "permitida"]):
+    if any(p in t for p in ["reglamento", "norma", "política", "politica",
+                              "horas máximas", "horas maximas",
+                              "horas mínimas", "horas minimas",
+                              "estatuto", "permitido", "permitida",
+                              "cuántas horas", "cuantas horas",
+                              "máximo", "maximo", "mínimo", "minimo"]):
         return "normativa"
     return "general"
 
