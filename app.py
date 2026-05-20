@@ -1,5 +1,6 @@
 import customtkinter as ctk
 import requests
+from ml_page import MLPage
 import threading
 import webbrowser
 import os
@@ -1404,6 +1405,7 @@ class App(ctk.CTk):
             ("🤖  Chatbot RAG",        "chatbot"),
             ("📷  Escáner Físico",     "camara"),
             ("📄  Reportes PDF",       "reportes"),
+            ("🧠  Machine Learning",   "ml"), 
         ]
 
         self.nav_btns = {}
@@ -1464,6 +1466,7 @@ class App(ctk.CTk):
             "asignaciones":AsignacionesPage,
             "conflictos":  ConflictosPage,
             "horario":     HorarioDocentePage,
+            "ml": MLPage,
             "chatbot":     ChatbotRAGPage,
             "camara":      CamaraPage,
             "reportes":    ReportesPage,
